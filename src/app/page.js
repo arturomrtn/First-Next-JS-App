@@ -1,38 +1,40 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { getWeatherCardBackground, glassmorphism } from "../styles/weatherStyles";
 
 export default function Home() {
   const [city, setCity] = useState(""); 
   const [weather, setWeather] = useState(null);
   const [cityImage, setCityImage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleCityChange = (e) => {
-    setCity(e.target.value.trimStart());
-  };
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        fetchWeatherByCoords(lat, lon);
+      });
+    }
+  }, []);
 
   const fetchWeather = async () => {
+    setLoading(true);
     const weatherApiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
     const unsplashApiKey = process.env.NEXT_PUBLIC_UNSPLASH_API_KEY;
 
-    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${weatherApiKey}&units=metric`;
-    const unsplashUrl = `https://api.unsplash.com/search/photos?query=${city}&client_id=${unsplashApiKey}&per_page=1`;
-
     try {
-      const weatherRes = await fetch(weatherUrl);
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${weatherApiKey}&units=metric`;
+      const unsplashUrl = `https://api.unsplash.com/search/photos?query=${city}&client_id=${unsplashApiKey}&per_page=1`;
+
+      const [weatherRes, imageRes] = await Promise.all([fetch(weatherUrl), fetch(unsplashUrl)]);
       const weatherData = await weatherRes.json();
+      const imageData = await imageRes.json();
 
       if (weatherRes.ok) {
         setWeather(weatherData);
-
-        const imageRes = await fetch(unsplashUrl);
-        const imageData = await imageRes.json();
-        
-        if (imageData.results.length > 0) {
-          setCityImage(imageData.results[0].urls.regular);
-        } else {
-          setCityImage("");
-        }
+        setCityImage(imageData.results.length > 0 ? imageData.results[0].urls.regular : "");
       } else {
         alert("City not found! Try again.");
         setWeather(null);
@@ -43,6 +45,25 @@ export default function Home() {
       setWeather(null);
       setCityImage("");
     }
+    setLoading(false);
+  };
+
+  const fetchWeatherByCoords = async (lat, lon) => {
+    setLoading(true);
+    const weatherApiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+    try {
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
+      const weatherRes = await fetch(weatherUrl);
+      const weatherData = await weatherRes.json();
+
+      if (weatherRes.ok) {
+        setWeather(weatherData);
+        setCity(weatherData.name);
+      }
+    } catch (error) {
+      console.error("Error fetching location data:", error);
+    }
+    setLoading(false);
   };
 
   const formatTime = (timestamp) => {
@@ -50,25 +71,25 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6">
+    <div className={`min-h-screen flex flex-col items-center justify-center text-white p-6 transition-all ${weather ? getWeatherCardBackground(weather.weather[0].main.toLowerCase()) : "bg-gradient-to-r from-blue-600 to-purple-600"}`}>
       <h1 className="text-4xl font-bold mb-6">🌤 Weather App</h1>
       <div className="flex gap-3">
         <input
           type="text"
           placeholder="Enter city..."
           value={city}
-          onChange={handleCityChange}
-          className="p-3 w-64 border border-gray-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          onChange={(e) => setCity(e.target.value.trimStart())}
+          className="p-3 w-64 border border-gray-400 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 text-black"
         />
         <button 
           onClick={fetchWeather} 
           className="p-3 bg-white text-blue-600 font-semibold rounded-lg shadow-md hover:bg-gray-200 transition"
         >
-          Search
+          {loading ? "Loading..." : "Search"}
         </button>
       </div>
       {weather && (
-        <div className="mt-8 w-96 bg-gradient-to-r from-blue-400 to-purple-400 backdrop-blur-md p-6 rounded-lg shadow-xl flex flex-col items-center">
+        <div className={`mt-8 w-96 ${glassmorphism} flex flex-col items-center`}>
           <h2 className="text-2xl font-semibold">{weather.name}</h2>
           {cityImage && (
             <div className="w-full h-40 overflow-hidden rounded-lg mt-3">
@@ -105,6 +126,9 @@ export default function Home() {
     </div>
   );
 }
+
+
+
 
 
 
