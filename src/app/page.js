@@ -64,35 +64,43 @@ export default function Home() {
     setLoading(false);
   };
 
-  const fetchWeatherByCoords = async (lat, lon) => {
-    setLoading(true);
-    setWeather(null);
-    setForecast(null);
-    setShowForecast(false);
+const fetchWeatherByCoords = async (lat, lon) => {
+  setLoading(true);
+  setWeather(null);
+  setForecast(null);
+  setShowForecast(false);
 
-    const weatherApiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
-    try {
-      const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
-      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
-      
-      const [weatherRes, forecastRes] = await Promise.all([
-        fetch(weatherUrl),
-        fetch(forecastUrl)
-      ]);
-      
-      const weatherData = await weatherRes.json();
-      const forecastData = await forecastRes.json();
+  const weatherApiKey = process.env.NEXT_PUBLIC_WEATHER_API_KEY;
+  const unsplashApiKey = process.env.NEXT_PUBLIC_UNSPLASH_API_KEY;
 
-      if (weatherRes.ok && forecastRes.ok) {
-        setWeather(weatherData);
-        setForecast(forecastData);
-        setCity(weatherData.name);
-      }
-    } catch (error) {
-      console.error("Error fetching location data:", error);
+  try {
+    const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
+    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${weatherApiKey}&units=metric`;
+
+    const [weatherRes, forecastRes] = await Promise.all([
+      fetch(weatherUrl),
+      fetch(forecastUrl),
+    ]);
+
+    const weatherData = await weatherRes.json();
+    const forecastData = await forecastRes.json();
+
+    if (weatherRes.ok && forecastRes.ok) {
+      setWeather(weatherData);
+      setForecast(forecastData);
+      setCity(weatherData.name);
+
+      const unsplashUrl = `https://api.unsplash.com/search/photos?query=${weatherData.name}&client_id=${unsplashApiKey}&per_page=1`;
+      const imageRes = await fetch(unsplashUrl);
+      const imageData = await imageRes.json();
+
+      setCityImage(imageData.results.length > 0 ? imageData.results[0].urls.regular : "");
     }
-    setLoading(false);
-  };
+  } catch (error) {
+    console.error("Error fetching location data:", error);
+  }
+  setLoading(false);
+};
 
   const formatTime = (timestamp) => {
     return new Date(timestamp * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
